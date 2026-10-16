@@ -8,6 +8,7 @@ BELOW = {
     "data": set(),
     "classification": set(),
     "regression": set(),
+    "stats": set(),
 }
 
 

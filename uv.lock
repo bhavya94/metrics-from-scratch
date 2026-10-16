@@ -47,23 +47,25 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "numpy" },
+    { name = "scipy" },
 ]
 
 [package.dev-dependencies]
 dev = [
     { name = "pytest" },
     { name = "scikit-learn" },
-    { name = "scipy" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "numpy", specifier = ">=2.5.4" }]
+requires-dist = [
+    { name = "numpy", specifier = ">=2.5.4" },
+    { name = "scipy", specifier = ">=1.18.1" },
+]
 
 [package.metadata.requires-dev]
 dev = [
     { name = "pytest", specifier = ">=9.1.1" },
     { name = "scikit-learn", specifier = ">=1.9.1" },
-    { name = "scipy", specifier = ">=1.18.1" },
 ]
 
 [[package]]

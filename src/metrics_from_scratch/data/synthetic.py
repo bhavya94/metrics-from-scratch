@@ -84,3 +84,28 @@ class NoisyLinear:
         delayed = rng.random(self.n) < self.outlier_rate
         y = self.line(x) + rng.normal(0.0, self.noise, self.n) + delayed * self.outlier_size
         return Observations(x=x, y=y)
+
+
+@dataclass(frozen=True)
+class Arms:
+    """One metric value per user in each arm of an A/B test."""
+
+    a: np.ndarray
+    b: np.ndarray
+
+
+@dataclass(frozen=True)
+class TwoArms:
+    """A recipe for an A/B test on minutes per session: arm B adds `lift` minutes and has more spread."""
+
+    n: int = 200  # users per arm
+    mean_a: float = 12.0
+    sd_a: float = 4.0
+    lift: float = 1.0
+    sd_b: float = 6.0
+    seed: int = 0
+
+    def sample(self) -> Arms:
+        rng = np.random.default_rng(self.seed)
+        a = rng.normal(self.mean_a, self.sd_a, self.n)
+        return Arms(a=a, b=rng.normal(self.mean_a + self.lift, self.sd_b, self.n))

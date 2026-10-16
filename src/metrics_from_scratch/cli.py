@@ -6,8 +6,10 @@ import numpy as np
 
 from metrics_from_scratch.classification.confusion import ConfusionMatrix
 from metrics_from_scratch.classification.curves import ThresholdSweep
-from metrics_from_scratch.data.synthetic import ImbalancedBinary, NoisyLinear
+from metrics_from_scratch.data.synthetic import ImbalancedBinary, NoisyLinear, TwoArms
 from metrics_from_scratch.regression.metrics import mae, mse, r2, rmse
+from metrics_from_scratch.stats.bootstrap import Bootstrap
+from metrics_from_scratch.stats.hypothesis import welch_t_test
 
 
 def _classify(args: argparse.Namespace) -> None:
@@ -44,6 +46,36 @@ def _regress(args: argparse.Namespace) -> None:
                   f"{mae(data.y, predicted):>6.2f} {r2(data.y, predicted):>7.3f}")
 
 
+def _f1(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    return ConfusionMatrix.from_labels(y_true, y_pred, labels=(0, 1)).f1()
+
+
+def _compare(args: argparse.Namespace) -> None:
+    # The same seed gives both models the same labels and noise; model B just separates the classes better.
+    a = ImbalancedBinary(n=args.n, positive_rate=args.positive_rate, separation=1.5, seed=args.seed).sample()
+    b = ImbalancedBinary(n=args.n, positive_rate=args.positive_rate, separation=args.separation_b,
+                         seed=args.seed).sample()
+    bootstrap = Bootstrap(n_resamples=args.resamples, seed=args.seed)
+    print(f"one test set of {args.n} examples, {a.y_true.mean():.1%} positive; 95% percentile bootstrap CIs")
+    rows = [("model A F1", bootstrap.interval(_f1, a.y_true, a.predict())),
+            ("model B F1", bootstrap.interval(_f1, a.y_true, b.predict())),
+            ("B - A, paired", bootstrap.interval(lambda y, pa, pb: _f1(y, pb) - _f1(y, pa),
+                                                 a.y_true, a.predict(), b.predict()))]
+    for name, interval in rows:
+        print(f"  {name:<14} {interval.estimate:.4f}  [{interval.low:.4f}, {interval.high:.4f}]")
+    (_, ci_a), (_, ci_b), (_, gap) = rows
+    print(f"  separate CIs overlap: {ci_a.high >= ci_b.low and ci_b.high >= ci_a.low}; "
+          f"paired CI excludes 0: {gap.excludes(0.0)}")
+
+
+def _t_test(args: argparse.Namespace) -> None:
+    arms = TwoArms(n=args.n, lift=args.lift, seed=args.seed).sample()
+    result = welch_t_test(arms.b, arms.a)
+    print(f"minutes per session, {args.n} users per arm: A ~ N(12, 4), B ~ N({12 + args.lift}, 6)")
+    print(f"  B - A = {result.mean_difference:.3f} min, t = {result.statistic:.3f}, "
+          f"df = {result.degrees_of_freedom:.1f}, p = {result.p_value:.4f}")
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="mfs", description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -69,6 +101,20 @@ def main(argv: list[str] | None = None) -> None:
     regress.add_argument("--n", type=int, default=2_000, help="number of deliveries")
     regress.add_argument("--seed", type=int, default=0)
     regress.set_defaults(run=_regress)
+
+    compare = commands.add_parser("compare", help="paired bootstrap CI for the F1 gap between two models")
+    compare.add_argument("--n", type=int, default=2_000, help="test set size")
+    compare.add_argument("--positive-rate", type=float, default=0.1, help="share of true positives")
+    compare.add_argument("--separation-b", type=float, default=1.7, help="model B's class separation (A has 1.5)")
+    compare.add_argument("--resamples", type=int, default=1_000, help="bootstrap resamples")
+    compare.add_argument("--seed", type=int, default=0)
+    compare.set_defaults(run=_compare)
+
+    t_test = commands.add_parser("t-test", help="Welch's t-test on a simulated A/B test")
+    t_test.add_argument("--n", type=int, default=200, help="users per arm")
+    t_test.add_argument("--lift", type=float, default=1.0, help="true extra minutes per session in arm B")
+    t_test.add_argument("--seed", type=int, default=0)
+    t_test.set_defaults(run=_t_test)
 
     args = parser.parse_args(argv)
     args.run(args)

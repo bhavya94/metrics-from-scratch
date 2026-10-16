@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from metrics_from_scratch.data.synthetic import ImbalancedBinary
+from metrics_from_scratch.data.synthetic import ImbalancedBinary, TwoArms
 
 
 def test_same_seed_gives_identical_samples():
@@ -26,3 +26,9 @@ def test_predict_uses_the_threshold_inclusively():
 def test_invalid_recipes_are_rejected(bad):
     with pytest.raises(ValueError):
         ImbalancedBinary(**bad)
+
+
+def test_two_arms_shift_b_by_the_lift():
+    arms = TwoArms(n=20_000, lift=1.5, seed=0).sample()
+    assert arms.b.mean() - arms.a.mean() == pytest.approx(1.5, abs=0.15)
+    assert arms.b.std() > arms.a.std()

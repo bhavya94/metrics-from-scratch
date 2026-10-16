@@ -18,3 +18,14 @@ def test_regress_prints_three_predictions_per_outlier_rate(capsys):
     main(["regress", "--outlier-rates", "0.0", "0.05", "--n", "500"])
     rows = capsys.readouterr().out.splitlines()[2:]
     assert len(rows) == 6 and sum("true line" in row for row in rows) == 2
+
+
+def test_compare_reports_a_paired_interval(capsys):
+    main(["compare", "--n", "1000", "--resamples", "200"])
+    out = capsys.readouterr().out
+    assert "B - A, paired" in out and "paired CI excludes 0:" in out
+
+
+def test_t_test_reports_a_p_value(capsys):
+    main(["t-test", "--n", "100", "--lift", "0"])
+    assert "p = " in capsys.readouterr().out
