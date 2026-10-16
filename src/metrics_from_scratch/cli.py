@@ -4,9 +4,10 @@ import argparse
 
 import numpy as np
 
+from metrics_from_scratch.agreement.kappa import cohen_kappa
 from metrics_from_scratch.classification.confusion import ConfusionMatrix
 from metrics_from_scratch.classification.curves import ThresholdSweep
-from metrics_from_scratch.data.synthetic import ImbalancedBinary, NoisyLinear, TwoArms
+from metrics_from_scratch.data.synthetic import ImbalancedBinary, JudgedAnswers, NoisyLinear, TwoArms
 from metrics_from_scratch.regression.metrics import mae, mse, r2, rmse
 from metrics_from_scratch.stats.bootstrap import Bootstrap
 from metrics_from_scratch.stats.hypothesis import welch_t_test
@@ -88,6 +89,24 @@ def _power(args: argparse.Namespace) -> None:
         print(f"  {label:<40} {value:>6}")
 
 
+def _kappa(args: argparse.Namespace) -> None:
+    # (TPR, TNR): how often each judge passes the human's passes and fails the human's fails.
+    judges = {"always pass": (1.0, 0.0), "random 80/20": (0.8, 0.2), "careful": (0.95, 0.85)}
+    # The same seed gives every judge the same human labels.
+    rated = {name: JudgedAnswers(n=args.n, pass_rate=args.pass_rate, tpr=tpr, tnr=tnr, seed=args.seed).sample()
+             for name, (tpr, tnr) in judges.items()}
+    human_pass = (rated["careful"].human == "pass").mean()
+    bootstrap = Bootstrap(n_resamples=args.resamples, seed=args.seed)
+    print(f"{args.n} answers labeled by a human ({human_pass:.0%} pass) and three judges")
+    print(f"  {'judge':<13} {'agree':>6} {'TPR':>6} {'TNR':>6} {'kappa':>6}  95% CI")
+    for name, ratings in rated.items():
+        matrix = ConfusionMatrix.from_labels(ratings.human, ratings.judge, labels=("fail", "pass"))
+        ci = bootstrap.interval(cohen_kappa, ratings.human, ratings.judge)
+        undefined = f"  ({ci.undefined_resamples} resamples undefined)" if ci.undefined_resamples else ""
+        print(f"  {name:<13} {matrix.accuracy():>6.2f} {matrix.recall('pass'):>6.2f} {matrix.recall('fail'):>6.2f} "
+              f"{ci.estimate:>6.2f}  [{ci.low:.2f}, {ci.high:.2f}]{undefined}")
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="mfs", description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -132,6 +151,13 @@ def main(argv: list[str] | None = None) -> None:
     power.add_argument("--alpha", type=float, default=0.05, help="false positive rate (two-sided)")
     power.add_argument("--power", type=float, default=0.8, help="chance of detecting a real effect")
     power.set_defaults(run=_power)
+
+    kappa = commands.add_parser("kappa", help="agreement of LLM judges with a human, beyond chance")
+    kappa.add_argument("--n", type=int, default=200, help="number of labeled answers")
+    kappa.add_argument("--pass-rate", type=float, default=0.8, help="share of answers the human passes")
+    kappa.add_argument("--resamples", type=int, default=1_000, help="bootstrap resamples for the kappa CI")
+    kappa.add_argument("--seed", type=int, default=0)
+    kappa.set_defaults(run=_kappa)
 
     args = parser.parse_args(argv)
     args.run(args)

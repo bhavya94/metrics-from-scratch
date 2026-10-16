@@ -9,6 +9,7 @@ BELOW = {
     "classification": set(),
     "regression": set(),
     "stats": set(),
+    "agreement": {"classification"},
 }
 
 

@@ -35,3 +35,9 @@ def test_power_prints_sample_sizes_per_arm(capsys):
     main(["power"])
     out = capsys.readouterr().out
     assert "409" in out and "3841" in out and "50%" in out
+
+
+def test_kappa_prints_one_row_per_judge(capsys):
+    main(["kappa", "--n", "300", "--resamples", "100"])
+    rows = capsys.readouterr().out.splitlines()[2:]
+    assert [row.split()[0] for row in rows] == ["always", "random", "careful"]
