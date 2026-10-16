@@ -2,8 +2,26 @@
 
 Evaluation metrics and statistics, implemented from scratch in numpy and checked against sklearn and scipy.
 
-The point is to know exactly what each number means and when it misleads. For example, on data where 1% of
-examples are positive, a classifier can score 99% accuracy while it finds fewer than 1 in 10 positives:
+Each metric here can make a weak model look good under the right conditions. The project shows those conditions
+with seeded synthetic data, so every number below can be re-run with one command. Every metric matches
+sklearn or scipy in tests; the power formulas are checked by simulation.
+
+## When each number misleads
+
+| Number | Misleads when | Check instead |
+|---|---|---|
+| Accuracy | Positives are rare: predicting "negative" scores high | Precision, recall, F1 for the rare class |
+| ROC-AUC | Positives are rare: it ignores how many false positives each true positive costs | Average precision, against the positive rate |
+| MSE | A few large errors dominate the average | MAE next to MSE; look at the residuals |
+| R2 | Read as "share explained" when it is negative or computed on a different set | The mean-prediction baseline (R2 = 0) |
+| A single score | Two models differ by less than the noise | A paired bootstrap CI of the difference |
+| p > 0.05 | The test had low power, so "no effect" means "can't tell" | A power analysis before the test |
+| Raw agreement | One label dominates, so agreeing by chance is easy | Cohen's kappa, plus TPR and TNR |
+
+## Evidence
+
+On data where 1% of examples are positive, a classifier can score 99% accuracy while it finds fewer than 1 in 10
+positives:
 
 ```console
 $ uv run mfs classify --positive-rate 0.01 --threshold 0.9
@@ -128,3 +146,15 @@ enforces both rules.
 4. `stats`: intervals and tests on any statistic.
 5. `agreement`: rater agreement, built on the confusion matrix.
 6. `cli.py`: the `mfs` command.
+
+## Limits
+- **Synthetic data.** The datasets are simple by design: Gaussian classes, a straight line, normal sessions.
+  Real data has skew, drift and label noise, which make every interval here wider.
+- **Normal approximations.** The power formulas assume large samples. For small samples or rare conversions,
+  check the plan by simulation, as `tests/test_power.py` does.
+- **Percentile bootstrap.** It can undercover for small samples and for skewed statistics. BCa intervals
+  correct for that; they are not implemented here.
+- **Peeking.** Each test assumes you look at the result once, at the planned sample size. Checking daily and
+  stopping at the first p < 0.05 inflates the false positive rate. Sequential tests handle that; not covered.
+- **Kappa depends on prevalence.** With one label at 95%, even a good judge can get a low kappa. Report TPR and
+  TNR next to it.
