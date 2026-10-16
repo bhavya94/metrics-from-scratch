@@ -7,6 +7,7 @@ SRC = Path(__file__).resolve().parents[1] / "src" / "metrics_from_scratch"
 BELOW = {
     "data": set(),
     "classification": set(),
+    "regression": set(),
 }
 
 

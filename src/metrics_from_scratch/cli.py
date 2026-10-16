@@ -2,9 +2,12 @@
 
 import argparse
 
+import numpy as np
+
 from metrics_from_scratch.classification.confusion import ConfusionMatrix
 from metrics_from_scratch.classification.curves import ThresholdSweep
-from metrics_from_scratch.data.synthetic import ImbalancedBinary
+from metrics_from_scratch.data.synthetic import ImbalancedBinary, NoisyLinear
+from metrics_from_scratch.regression.metrics import mae, mse, r2, rmse
 
 
 def _classify(args: argparse.Namespace) -> None:
@@ -29,6 +32,18 @@ def _curves(args: argparse.Namespace) -> None:
         print(f"  {rate:<14} {sweep.roc_auc():>8.4f} {sweep.average_precision():>14.4f} {data.y_true.mean():>10.4f}")
 
 
+def _regress(args: argparse.Namespace) -> None:
+    print(f"{args.n} delivery times (minutes); the true line is 10 + 3 * km")
+    print(f"  {'delayed':<8} {'prediction':<15} {'MSE':>8} {'RMSE':>6} {'MAE':>6} {'R2':>7}")
+    for rate in args.outlier_rates:
+        recipe = NoisyLinear(n=args.n, outlier_rate=rate, seed=args.seed)
+        data = recipe.sample()
+        for name, predicted in [("true line", recipe.line(data.x)), ("mean of y", np.full_like(data.y, data.y.mean())),
+                                ("mean + 10 min", np.full_like(data.y, data.y.mean() + 10))]:
+            print(f"  {rate:<8} {name:<15} {mse(data.y, predicted):>8.1f} {rmse(data.y, predicted):>6.2f} "
+                  f"{mae(data.y, predicted):>6.2f} {r2(data.y, predicted):>7.3f}")
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="mfs", description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -47,6 +62,13 @@ def main(argv: list[str] | None = None) -> None:
     curves.add_argument("--separation", type=float, default=1.5, help="distance between class means")
     curves.add_argument("--seed", type=int, default=0)
     curves.set_defaults(run=_curves)
+
+    regress = commands.add_parser("regress", help="MSE, MAE and R2 with and without outliers")
+    regress.add_argument("--outlier-rates", type=float, nargs="+", default=[0.0, 0.02],
+                         help="share of orders delayed by an hour")
+    regress.add_argument("--n", type=int, default=2_000, help="number of deliveries")
+    regress.add_argument("--seed", type=int, default=0)
+    regress.set_defaults(run=_regress)
 
     args = parser.parse_args(argv)
     args.run(args)

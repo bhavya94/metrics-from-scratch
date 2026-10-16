@@ -29,11 +29,27 @@ $ uv run mfs curves
   0.001            0.8482         0.0383     0.0009
 ```
 
+For regression, an hour's delay on 2% of deliveries multiplies MSE by 5 but moves MAE by about one
+minute. R2 is 0 for always predicting the mean, and negative for anything worse:
+
+```console
+$ uv run mfs regress
+2000 delivery times (minutes); the true line is 10 + 3 * km
+  delayed  prediction           MSE   RMSE    MAE      R2
+  0.0      true line           15.7   3.97   3.18   0.904
+  0.0      mean of y          164.5  12.83  10.93   0.000
+  0.0      mean + 10 min      264.5  16.26  13.25  -0.608
+  0.02     true line           79.6   8.92   4.19   0.637
+  0.02     mean of y          219.6  14.82  11.75   0.000
+  0.02     mean + 10 min      319.6  17.88  14.30  -0.455
+```
+
 ## What is here
 - **Synthetic data** (`data/`): a binary task with a chosen positive rate and class separation, seeded.
 - **Classification metrics** (`classification/`): a confusion matrix, and accuracy, precision, recall, F1 and
   macro-F1 computed from it. Binary and multiclass. A threshold sweep gives the ROC and precision-recall
   curves, ROC-AUC and average precision.
+- **Regression metrics** (`regression/`): MSE, RMSE, MAE and R2.
 
 Every metric has a parity test against the sklearn function with the same meaning (`tests/`).
 
@@ -43,6 +59,7 @@ uv sync
 uv run pytest
 uv run mfs classify --help
 uv run mfs curves --help
+uv run mfs regress --help
 ```
 
 ## Layers
@@ -51,4 +68,5 @@ enforces both rules.
 
 1. `data`: synthetic datasets.
 2. `classification`: metrics on labels and scores.
-3. `cli.py`: the `mfs` command.
+3. `regression`: metrics on real-valued predictions.
+4. `cli.py`: the `mfs` command.
