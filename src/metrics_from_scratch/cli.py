@@ -10,6 +10,7 @@ from metrics_from_scratch.data.synthetic import ImbalancedBinary, NoisyLinear, T
 from metrics_from_scratch.regression.metrics import mae, mse, r2, rmse
 from metrics_from_scratch.stats.bootstrap import Bootstrap
 from metrics_from_scratch.stats.hypothesis import welch_t_test
+from metrics_from_scratch.stats.power import PowerPlan
 
 
 def _classify(args: argparse.Namespace) -> None:
@@ -76,6 +77,17 @@ def _t_test(args: argparse.Namespace) -> None:
           f"df = {result.degrees_of_freedom:.1f}, p = {result.p_value:.4f}")
 
 
+def _power(args: argparse.Namespace) -> None:
+    plan = PowerPlan(alpha=args.alpha, power=args.power)
+    rows = [("session minutes, sd 4 vs 6, lift 1 min", plan.n_for_means(4.0, 6.0, 1.0)),
+            ("  power with only 200 per arm", f"{plan.power_for_means(200, 4.0, 6.0, 1.0):.0%}"),
+            ("conversion 10% -> 12%", plan.n_for_proportions(0.10, 0.02)),
+            ("conversion 10% -> 11%", plan.n_for_proportions(0.10, 0.01))]
+    print(f"two-sided test, alpha {args.alpha}, power {args.power}; users per arm")
+    for label, value in rows:
+        print(f"  {label:<40} {value:>6}")
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="mfs", description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -115,6 +127,11 @@ def main(argv: list[str] | None = None) -> None:
     t_test.add_argument("--lift", type=float, default=1.0, help="true extra minutes per session in arm B")
     t_test.add_argument("--seed", type=int, default=0)
     t_test.set_defaults(run=_t_test)
+
+    power = commands.add_parser("power", help="sample size per arm for an A/B test")
+    power.add_argument("--alpha", type=float, default=0.05, help="false positive rate (two-sided)")
+    power.add_argument("--power", type=float, default=0.8, help="chance of detecting a real effect")
+    power.set_defaults(run=_power)
 
     args = parser.parse_args(argv)
     args.run(args)

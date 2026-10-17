@@ -29,3 +29,9 @@ def test_compare_reports_a_paired_interval(capsys):
 def test_t_test_reports_a_p_value(capsys):
     main(["t-test", "--n", "100", "--lift", "0"])
     assert "p = " in capsys.readouterr().out
+
+
+def test_power_prints_sample_sizes_per_arm(capsys):
+    main(["power"])
+    out = capsys.readouterr().out
+    assert "409" in out and "3841" in out and "50%" in out

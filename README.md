@@ -65,18 +65,31 @@ minutes per session, 200 users per arm: A ~ N(12, 4), B ~ N(13.0, 6)
   B - A = 0.408 min, t = 0.793, df = 333.9, p = 0.4282
 ```
 
+A power analysis says so before the test runs. That design had a 50% chance of detecting the lift; it needed
+409 users per arm. Conversion tests need far more, and halving the effect quadruples the sample:
+
+```console
+$ uv run mfs power
+two-sided test, alpha 0.05, power 0.8; users per arm
+  session minutes, sd 4 vs 6, lift 1 min      409
+    power with only 200 per arm               50%
+  conversion 10% -> 12%                      3841
+  conversion 10% -> 11%                     14751
+```
+
 ## What is here
 - **Synthetic data** (`data/`): a binary task with a chosen positive rate and class separation, seeded.
 - **Classification metrics** (`classification/`): a confusion matrix, and accuracy, precision, recall, F1 and
   macro-F1 computed from it. Binary and multiclass. A threshold sweep gives the ROC and precision-recall
   curves, ROC-AUC and average precision.
 - **Regression metrics** (`regression/`): MSE, RMSE, MAE and R2.
-- **Statistics** (`stats/`): percentile bootstrap confidence intervals (paired across arrays) and Welch's
-  two-sample t-test.
+- **Statistics** (`stats/`): percentile bootstrap confidence intervals (paired across arrays), Welch's
+  two-sample t-test, and sample sizes for A/B tests (means and conversion rates).
 
 Every metric and test has a parity test against the sklearn or scipy function with the same meaning
 (`tests/`). The
 t-test computes its statistic and degrees of freedom here and looks up only the t distribution's tail in scipy.
+The power formulas have no reference here; `tests/test_power.py` checks them by simulation instead.
 
 ## Run it
 ```console
@@ -87,6 +100,7 @@ uv run mfs curves --help
 uv run mfs regress --help
 uv run mfs compare --help
 uv run mfs t-test --help
+uv run mfs power --help
 ```
 
 ## Layers
