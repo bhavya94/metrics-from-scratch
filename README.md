@@ -44,14 +44,39 @@ $ uv run mfs regress
   0.02     mean + 10 min      319.6  17.88  14.30  -0.455
 ```
 
+A metric needs an interval before a difference means anything. Two models scored on the same test set have
+overlapping confidence intervals, yet a paired bootstrap (resampling the same rows for both) shows B is better:
+
+```console
+$ uv run mfs compare
+one test set of 2000 examples, 10.5% positive; 95% percentile bootstrap CIs
+  model A F1     0.4026  [0.3585, 0.4450]
+  model B F1     0.4420  [0.3964, 0.4855]
+  B - A, paired  0.0394  [0.0277, 0.0533]
+  separate CIs overlap: True; paired CI excludes 0: True
+```
+
+And a real effect can hide in noise when the sample is small. Arm B truly adds 1 minute per session, but with
+200 users per arm Welch's t-test can't tell:
+
+```console
+$ uv run mfs t-test
+minutes per session, 200 users per arm: A ~ N(12, 4), B ~ N(13.0, 6)
+  B - A = 0.408 min, t = 0.793, df = 333.9, p = 0.4282
+```
+
 ## What is here
 - **Synthetic data** (`data/`): a binary task with a chosen positive rate and class separation, seeded.
 - **Classification metrics** (`classification/`): a confusion matrix, and accuracy, precision, recall, F1 and
   macro-F1 computed from it. Binary and multiclass. A threshold sweep gives the ROC and precision-recall
   curves, ROC-AUC and average precision.
 - **Regression metrics** (`regression/`): MSE, RMSE, MAE and R2.
+- **Statistics** (`stats/`): percentile bootstrap confidence intervals (paired across arrays) and Welch's
+  two-sample t-test.
 
-Every metric has a parity test against the sklearn function with the same meaning (`tests/`).
+Every metric and test has a parity test against the sklearn or scipy function with the same meaning
+(`tests/`). The
+t-test computes its statistic and degrees of freedom here and looks up only the t distribution's tail in scipy.
 
 ## Run it
 ```console
@@ -60,6 +85,8 @@ uv run pytest
 uv run mfs classify --help
 uv run mfs curves --help
 uv run mfs regress --help
+uv run mfs compare --help
+uv run mfs t-test --help
 ```
 
 ## Layers
@@ -69,4 +96,5 @@ enforces both rules.
 1. `data`: synthetic datasets.
 2. `classification`: metrics on labels and scores.
 3. `regression`: metrics on real-valued predictions.
-4. `cli.py`: the `mfs` command.
+4. `stats`: intervals and tests on any statistic.
+5. `cli.py`: the `mfs` command.
