@@ -1,0 +1,378 @@
+<meta charset="utf-8">
+<title>When Metrics Mislead</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;650&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one reading column; each metric is a numbered PR section with a claim, a chart, and the command that reproduces it. */
+:root {
+  --bg: #f4f6f8; --surface: #ffffff; --fg: #17202b; --muted: #5a6573; --rule: #d6dce3; --grid: #e8ecf0;
+  --accent: #1f5fbf; --s0: #0072b2; --s1: #d55e00; --s2: #009e73; --s3: #cc79a7; --bad: #b4232f; --good: #1a7f4b;
+  --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f141a; --surface: #161d25; --fg: #e6ebf1; --muted: #9aa6b4; --rule: #2b3541; --grid: #1f2832;
+  --accent: #79aaf5; --s0: #56b4e9; --s1: #f0884a; --s2: #3cc39a; --s3: #e09ac3; --bad: #f07178; --good: #5fd39a;
+  color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #0f141a; --surface: #161d25; --fg: #e6ebf1; --muted: #9aa6b4; --rule: #2b3541; --grid: #1f2832;
+  --accent: #79aaf5; --s0: #56b4e9; --s1: #f0884a; --s2: #3cc39a; --s3: #e09ac3; --bad: #f07178; --good: #5fd39a;
+  color-scheme: dark; }
+
+body { background: var(--bg); color: var(--fg); font: 16px/1.55 var(--body); margin: 0; padding-inline: 16px; padding-block: 32px 64px; }
+main { max-width: 920px; margin: 0 auto; display: grid; gap: 28px; }
+header { display: grid; gap: 8px; }
+h1, h2 { font-family: var(--display); font-weight: 650; text-wrap: balance; margin: 0; letter-spacing: -0.01em; }
+h1 { font-size: clamp(28px, 5vw, 40px); line-height: 1.1; }
+h2 { font-size: clamp(20px, 3vw, 24px); line-height: 1.2; }
+p { margin: 0; max-width: 68ch; }
+.lede { color: var(--muted); font-size: 17px; }
+.eyebrow { font: 600 12px/1 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+section { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 24px; display: grid; gap: 14px; min-width: 0; }
+code, .mono { font-family: var(--mono); font-size: 13px; }
+.cmd { color: var(--muted); font-family: var(--mono); font-size: 13px; overflow-x: auto; white-space: nowrap; border-top: 1px solid var(--grid); padding-top: 12px; }
+.cmd::before { content: "$ "; color: var(--accent); }
+.row { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; align-items: start; }
+.row > * { min-width: 0; }
+.panel-title { font: 600 13px/1.3 var(--body); color: var(--muted); margin-bottom: 4px; }
+svg { display: block; width: 100%; height: auto; overflow: visible; }
+svg text { fill: var(--muted); font: 11px var(--mono); }
+svg .axis { stroke: var(--rule); } svg .gridline { stroke: var(--grid); }
+svg .ref { stroke: var(--muted); stroke-dasharray: 4 4; fill: none; }
+.s0 { stroke: var(--s0); fill: var(--s0); } .s1 { stroke: var(--s1); fill: var(--s1); }
+.s2 { stroke: var(--s2); fill: var(--s2); } .s3 { stroke: var(--s3); fill: var(--s3); }
+.muted-fill { fill: var(--muted); }
+.key { font-weight: 600; } .s0-text { color: var(--s0); } .s1-text { color: var(--s1); } .s2-text { color: var(--s2); } path.line { fill: none; stroke-width: 2; }
+table { border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.legend { width: 100%; font-size: 14px; }
+.legend th, .legend td { padding: 4px 10px 4px 0; text-align: right; border-bottom: 1px solid var(--grid); }
+.legend th:first-child, .legend td:first-child { text-align: left; }
+.legend th { font-weight: 600; color: var(--muted); font-size: 13px; }
+.swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: baseline; }
+.scroll { overflow-x: auto; }
+
+.control { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.control label { font-weight: 600; }
+.control output { font: 600 15px var(--mono); min-width: 3.5em; }
+input[type=range] { flex: 1 1 220px; accent-color: var(--accent); }
+input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+.matrix { font-family: var(--mono); font-size: 14px; }
+.matrix th { font: 600 12px var(--body); color: var(--muted); padding: 6px 8px; text-align: center; }
+.matrix th.side { text-align: right; }
+.matrix td { width: 104px; height: 64px; text-align: center; border: 1px solid var(--rule); }
+.matrix td b { display: block; font-size: 20px; }
+.matrix td span { font-size: 11px; color: var(--muted); }
+.matrix td.miss { color: var(--bad); }
+.bars { display: grid; gap: 8px; }
+.bar { display: grid; grid-template-columns: 84px 1fr 56px; gap: 10px; align-items: center; font-size: 14px; }
+.bar .track { height: 10px; background: var(--grid); border-radius: 2px; overflow: hidden; }
+.bar .fill { height: 100%; background: var(--accent); }
+.bar .val { font-family: var(--mono); font-size: 13px; text-align: right; }
+.stats { display: flex; flex-wrap: wrap; gap: 12px 32px; }
+.stat { display: grid; gap: 2px; }
+.stat .k { font-size: 13px; color: var(--muted); }
+.stat .v { font: 600 18px var(--mono); }
+.stat .v small { font-weight: 400; color: var(--muted); font-size: 13px; }
+@media (max-width: 480px) { section { padding: 16px; } .matrix td { width: 76px; } }
+</style>
+
+<main>
+  <header>
+    <div class="eyebrow">metrics-from-scratch</div>
+    <h1>When metrics mislead</h1>
+    <p class="lede">Six ways a metric can mislead, each on seeded synthetic data. Every value below
+      comes from the library in this repo and matches the README. The command under each chart reproduces it.</p>
+  </header>
+
+  <section id="confusion">
+    <div class="eyebrow">confusion matrix</div>
+    <h2>At a high threshold, accuracy reads 99% while recall is 8%</h2>
+    <p>10,000 examples, about 1% positive. As the threshold rises, the model predicts fewer positives and accuracy
+      climbs toward 99%, because almost every example is a negative. At 0.9, recall shows it finds fewer than 1 in 10
+      positives. Move the threshold to see the trade.</p>
+    <div class="control">
+      <label for="thr">Threshold</label>
+      <input id="thr" type="range" min="0" max="18" step="1" value="17">
+      <output id="thr-out" for="thr"></output>
+    </div>
+    <div class="row">
+      <div>
+        <div class="panel-title">Confusion matrix (rows = truth, columns = prediction)</div>
+        <div class="scroll"><table class="matrix" id="matrix"></table></div>
+      </div>
+      <div>
+        <div class="panel-title">Scores at this threshold</div>
+        <div class="bars" id="score-bars"></div>
+      </div>
+    </div>
+    <div>
+      <div class="panel-title">Every threshold: <span class="key s0-text">accuracy</span>, <span class="key s2-text">precision</span>
+        and <span class="key s1-text">recall</span></div>
+      <div id="thr-chart"></div>
+    </div>
+    <div class="cmd">uv run mfs classify --positive-rate 0.01 --threshold 0.9</div>
+  </section>
+
+  <section id="curves">
+    <div class="eyebrow">ROC and precision-recall</div>
+    <h2>ROC-AUC stays the same as positives get rarer; average precision falls</h2>
+    <p>The same model at four positive rates. The ROC curves lie on top of each other. The precision-recall curves
+      drop, because each true positive now costs many more false positives.</p>
+    <div class="row">
+      <div><div class="panel-title">ROC curve</div><div id="roc"></div></div>
+      <div><div class="panel-title">Precision-recall curve</div><div id="pr"></div></div>
+    </div>
+    <div class="scroll"><table class="legend" id="curves-legend"></table></div>
+    <div class="cmd">uv run mfs curves</div>
+  </section>
+
+  <section id="regression">
+    <div class="eyebrow">regression metrics</div>
+    <h2>A few delayed orders make most of the MSE</h2>
+    <p>2,000 delivery times, predicted by the true line. Then orders get a 2% chance of an hour's delay. Squaring makes those
+      few large errors carry most of the MSE. MAE weights every minute the same, so it barely moves.</p>
+    <div class="stats" id="reg-stats"></div>
+    <div class="row">
+      <div><div class="panel-title">Deliveries per residual band, with delays</div><div id="reg-counts"></div></div>
+      <div><div class="panel-title">Share of each metric from each band, with delays</div><div id="reg-share"></div></div>
+    </div>
+    <div class="cmd">uv run mfs regress</div>
+  </section>
+
+  <section id="bootstrap">
+    <div class="eyebrow">bootstrap intervals</div>
+    <h2>Separate intervals overlap; the paired interval shows B is better</h2>
+    <p>Two models on one test set of 2,000 examples, with 95% bootstrap intervals. Compared separately, their F1
+      intervals overlap. Resampling the same rows for both models gives an interval for the gap that excludes zero.</p>
+    <div class="row">
+      <div><div class="panel-title">F1 of each model</div><div id="boot-models"></div></div>
+      <div><div class="panel-title">F1 gap, B − A (paired)</div><div id="boot-gap"></div></div>
+    </div>
+    <div class="cmd">uv run mfs compare</div>
+  </section>
+
+  <section id="power">
+    <div class="eyebrow">power analysis</div>
+    <h2>200 users per arm gives a coin flip's chance to detect the lift</h2>
+    <p>An A/B test on minutes per session: arm B adds 1 minute, with standard deviations of 4 and 6. A test with too few
+      users usually returns p &gt; 0.05 even though the effect is real. Plan the sample size before the test.</p>
+    <div id="power-chart"></div>
+    <div class="cmd">uv run mfs power</div>
+  </section>
+
+  <section id="kappa">
+    <div class="eyebrow">Cohen's kappa</div>
+    <h2>A judge that passes everything agrees about 72% of the time and adds nothing</h2>
+    <p>Three LLM judges label the same 200 answers as a human. Most answers deserve a pass, so agreement by chance is
+      high. Kappa removes that chance agreement; true positive and true negative rates show which side a judge errs on.</p>
+    <div id="kappa-chart"></div>
+    <div class="scroll"><table class="legend" id="kappa-table"></table></div>
+    <div class="cmd">uv run mfs kappa</div>
+  </section>
+</main>
+
+<script>
+const DATA = /*VIEW_DATA*/null;
+const NS = "http://www.w3.org/2000/svg";
+const pct = v => (v * 100).toFixed(v < 0.1 && v > 0 ? 1 : 0) + "%";
+const f2 = v => v.toFixed(2), f3 = v => v.toFixed(3), f4 = v => v.toFixed(4);
+
+function el(tag, attrs = {}, parent) {
+  const node = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
+  if (parent) parent.appendChild(node);
+  return node;
+}
+
+// A chart frame: linear scales, gridlines, ticks and axis labels. Marks go in `plot` through x() and y().
+function frame(host, { w = 440, h = 260, x, y, xlabel, ylabel }) {
+  const m = { l: 48, r: 14, t: 10, b: xlabel ? 42 : 26 };
+  const svg = el("svg", { viewBox: `0 0 ${w} ${h}`, role: "img" });
+  const X = v => m.l + (v - x.min) / (x.max - x.min) * (w - m.l - m.r);
+  const Y = v => h - m.b - (v - y.min) / (y.max - y.min) * (h - m.t - m.b);
+  for (const t of y.ticks) {
+    el("line", { x1: m.l, x2: w - m.r, y1: Y(t), y2: Y(t), class: "gridline" }, svg);
+    el("text", { x: m.l - 6, y: Y(t) + 4, "text-anchor": "end" }, svg).textContent = (y.fmt || String)(t);
+  }
+  for (const t of x.ticks) {
+    el("text", { x: X(t), y: h - m.b + 16, "text-anchor": "middle" }, svg).textContent = (x.fmt || String)(t);
+  }
+  el("line", { x1: m.l, x2: w - m.r, y1: h - m.b, y2: h - m.b, class: "axis" }, svg);
+  if (xlabel) el("text", { x: (m.l + w - m.r) / 2, y: h - 6, "text-anchor": "middle" }, svg).textContent = xlabel;
+  if (ylabel) el("text", { x: 12, y: (m.t + h - m.b) / 2, "text-anchor": "middle",
+                           transform: `rotate(-90 12 ${(m.t + h - m.b) / 2})` }, svg).textContent = ylabel;
+  host.replaceChildren(svg);
+  return { svg, X, Y, m, w, h };
+}
+
+const line = (f, xs, ys, cls) =>
+  el("path", { d: xs.map((v, i) => `${i ? "L" : "M"}${f.X(v).toFixed(1)},${f.Y(ys[i]).toFixed(1)}`).join(""),
+               class: `line ${cls}` }, f.svg);
+const label = (f, x, y, text, anchor = "start", cls = "") =>
+  Object.assign(el("text", { x, y, "text-anchor": anchor, class: cls }, f.svg), { textContent: text });
+const ticks = (lo, hi, step) => Array.from({ length: Math.round((hi - lo) / step) + 1 }, (_, i) => +(lo + i * step).toFixed(6));
+
+// PR 1: the threshold slider drives the matrix, the score bars and the marker on the sweep chart.
+function drawConfusion() {
+  const { rows, n, positive_share } = DATA.confusion;
+  const slider = document.getElementById("thr");
+  slider.max = rows.length - 1;
+  const chartHost = document.getElementById("thr-chart");
+  const f = frame(chartHost, { w: 880, h: 240, x: { min: 0.05, max: 0.95, ticks: ticks(0.1, 0.9, 0.1), fmt: v => v.toFixed(1) },
+                               y: { min: 0, max: 1, ticks: ticks(0, 1, 0.25), fmt: pct }, xlabel: "threshold" });
+  const series = [["accuracy", "s0"], ["precision", "s2"], ["recall", "s1"]];
+  for (const [key, cls] of series) {
+    line(f, rows.map(r => r.threshold), rows.map(r => r[key]), cls);
+  }
+  const marker = el("line", { y1: f.m.t, y2: f.h - f.m.b, class: "ref" }, f.svg);
+
+  function update() {
+    const r = rows[+slider.value];
+    document.getElementById("thr-out").textContent = r.threshold.toFixed(2);
+    marker.setAttribute("x1", f.X(r.threshold)); marker.setAttribute("x2", f.X(r.threshold));
+    const cell = (count, name, miss) => `<td class="${miss ? "miss" : ""}"><b>${count.toLocaleString()}</b><span>${name}</span></td>`;
+    document.getElementById("matrix").innerHTML =
+      `<tr><th></th><th>Predicted negative</th><th>Predicted positive</th></tr>` +
+      `<tr><th class="side">True negative</th>${cell(r.tn, "TN")}${cell(r.fp, "FP", true)}</tr>` +
+      `<tr><th class="side">True positive</th>${cell(r.fn, "FN", true)}${cell(r.tp, "TP")}</tr>`;
+    document.getElementById("score-bars").innerHTML = ["accuracy", "precision", "recall", "f1"].map(k =>
+      `<div class="bar"><span>${k === "f1" ? "F1" : k[0].toUpperCase() + k.slice(1)}</span>` +
+      `<div class="track"><div class="fill" style="width:${(r[k] * 100).toFixed(1)}%"></div></div>` +
+      `<span class="val">${f4(r[k])}</span></div>`).join("");
+  }
+  slider.addEventListener("input", update);
+  update();
+}
+
+// PR 2: four positive rates, drawn on the ROC and the precision-recall axes.
+function drawCurves() {
+  const { series } = DATA.curves;
+  const cls = ["s0", "s1", "s2", "s3"];
+  const unit = { min: 0, max: 1, ticks: ticks(0, 1, 0.25), fmt: v => v.toFixed(2) };
+  const roc = frame(document.getElementById("roc"), { x: unit, y: unit, xlabel: "false positive rate", ylabel: "true positive rate" });
+  el("line", { x1: roc.X(0), y1: roc.Y(0), x2: roc.X(1), y2: roc.Y(1), class: "ref" }, roc.svg);
+  const pr = frame(document.getElementById("pr"), { x: unit, y: unit, xlabel: "recall", ylabel: "precision" });
+  series.forEach((s, i) => {
+    line(roc, s.roc[0], s.roc[1], cls[i]);
+    line(pr, s.pr[0], s.pr[1], cls[i]);
+  });
+  document.getElementById("curves-legend").innerHTML =
+    `<tr><th>Positive rate</th><th>ROC-AUC</th><th>Average precision</th><th>Random AP</th></tr>` +
+    series.map((s, i) => `<tr><td><span class="swatch" style="background:var(--${cls[i]})"></span>${+(s.rate * 100).toFixed(1)}%</td>` +
+      `<td class="mono">${f4(s.roc_auc)}</td><td class="mono">${f4(s.average_precision)}</td>` +
+      `<td class="mono">${f4(s.positive_share)}</td></tr>`).join("");
+}
+
+// PR 3: counts per residual band, and each band's share of MSE and of MAE, for the run with delays.
+function drawRegression() {
+  const { edges, runs } = DATA.regression;
+  const [clean, delayed] = runs;
+  const ratio = (a, b) => `×${(b / a).toFixed(1)}`;
+  document.getElementById("reg-stats").innerHTML = [
+    ["MSE, no delays", clean.mse.toFixed(1)], ["MSE, 2% delayed", `${delayed.mse.toFixed(1)} <small>${ratio(clean.mse, delayed.mse)}</small>`],
+    ["MAE, no delays", f2(clean.mae)], ["MAE, 2% delayed", `${f2(delayed.mae)} <small>${ratio(clean.mae, delayed.mae)}</small>`],
+  ].map(([k, v]) => `<div class="stat"><span class="k">${k}</span><span class="v">${v}</span></div>`).join("");
+
+  const lo = edges[0], hi = edges[edges.length - 1], width = edges[1] - edges[0];
+  const x = { min: lo, max: hi, ticks: ticks(-15, 75, 15), fmt: v => v };
+  const maxCount = Math.max(...delayed.counts);
+  const counts = frame(document.getElementById("reg-counts"), {
+    x, y: { min: 0, max: Math.ceil(maxCount / 100) * 100, ticks: ticks(0, Math.ceil(maxCount / 100) * 100, 100) },
+    xlabel: "actual − predicted (minutes)" });
+  delayed.counts.forEach((c, i) => {
+    const x0 = counts.X(edges[i]) + 1, x1 = counts.X(edges[i + 1]) - 1;
+    el("rect", { x: x0, width: x1 - x0, y: counts.Y(c), height: counts.Y(0) - counts.Y(c), class: "muted-fill" }, counts.svg);
+  });
+  const delayedCount = delayed.counts.reduce((sum, c, i) => sum + (edges[i] >= 36 ? c : 0), 0);
+  label(counts, counts.X(60), counts.Y(0) - 16, `${delayedCount} delayed orders`, "middle");
+
+  const share = frame(document.getElementById("reg-share"), {
+    x, y: { min: 0, max: 0.4, ticks: ticks(0, 0.4, 0.1), fmt: pct }, xlabel: "actual − predicted (minutes)" });
+  delayed.counts.forEach((_, i) => {
+    const x0 = share.X(edges[i]) + 1, mid = share.X(edges[i] + width / 2), x1 = share.X(edges[i + 1]) - 1;
+    for (const [key, cls, a, b] of [["squared_share", "s1", x0, mid], ["absolute_share", "s0", mid, x1]]) {
+      const v = delayed[key][i];
+      el("rect", { x: a, width: b - a, y: share.Y(v), height: share.Y(0) - share.Y(v), class: cls }, share.svg);
+    }
+  });
+  const tail = key => delayed[key].reduce((sum, v, i) => sum + (edges[i] >= 36 ? v : 0), 0);
+  label(share, share.X(36), share.Y(0.34), "delayed orders carry", "end");
+  label(share, share.X(36), share.Y(0.29), `${pct(tail("squared_share"))} of MSE`, "end", "s1");
+  label(share, share.X(36), share.Y(0.24), `${pct(tail("absolute_share"))} of MAE`, "end", "s0");
+}
+
+// PR 4: dot-and-whisker intervals; the gap gets its own axis with a zero line.
+function whiskers(host, rows, x, color) {
+  const h = 30 + rows.length * 44;
+  const f = frame(host, { h, x, y: { min: 0, max: rows.length, ticks: [] } });
+  rows.forEach((r, i) => {
+    const yy = f.Y(rows.length - i - 0.5);
+    el("line", { x1: f.X(r.low), x2: f.X(r.high), y1: yy, y2: yy, class: color(i), "stroke-width": 3 }, f.svg);
+    el("circle", { cx: f.X(r.estimate), cy: yy, r: 5, class: color(i) }, f.svg);
+    label(f, f.X(r.low), yy - 10, r.label, "start");
+    label(f, f.X(r.high) + 6, yy + 4, `[${f3(r.low)}, ${f3(r.high)}]`, "start");
+  });
+  return f;
+}
+
+function drawBootstrap() {
+  const [a, b, gap] = DATA.bootstrap.rows;
+  whiskers(document.getElementById("boot-models"), [a, b], { min: 0.34, max: 0.54, ticks: ticks(0.35, 0.5, 0.05), fmt: f2 },
+           i => ["s0", "s1"][i]);
+  const g = whiskers(document.getElementById("boot-gap"), [gap], { min: -0.02, max: 0.08, ticks: ticks(-0.02, 0.06, 0.02), fmt: f2 },
+                     () => "s2");
+  el("line", { x1: g.X(0), x2: g.X(0), y1: g.m.t, y2: g.h - g.m.b, class: "ref" }, g.svg);
+  label(g, g.X(0) - 4, g.m.t + 10, "no difference", "end");
+}
+
+// PR 5: power against users per arm, with the 80% target and the two sample sizes from the README.
+function drawPower() {
+  const { sizes, power, needed, at_200 } = DATA.power;
+  const f = frame(document.getElementById("power-chart"), { w: 880, h: 280,
+    x: { min: 0, max: 1000, ticks: ticks(0, 1000, 200) }, y: { min: 0, max: 1, ticks: ticks(0, 1, 0.2), fmt: pct },
+    xlabel: "users per arm", ylabel: "chance to detect the lift" });
+  el("line", { x1: f.X(0), x2: f.X(1000), y1: f.Y(0.8), y2: f.Y(0.8), class: "ref" }, f.svg);
+  label(f, f.X(1000) - 4, f.Y(0.8) + 16, "80% target", "end");
+  line(f, sizes, power, "s0");
+  for (const [n, p, text, cls] of [[200, at_200, `200 users: ${pct(at_200)}`, "s1"], [needed, 0.8, `${needed} users: 80%`, "s2"]]) {
+    el("circle", { cx: f.X(n), cy: f.Y(p), r: 5, class: cls }, f.svg);
+    label(f, f.X(n) + 10, f.Y(p) + 18, text, "start", cls);
+  }
+}
+
+// PR 6: raw agreement next to kappa (with its interval) for each judge, on one axis.
+function drawKappa() {
+  const { rows, human_pass } = DATA.kappa;
+  const h = 40 + rows.length * 70;
+  const f = frame(document.getElementById("kappa-chart"), { w: 880, h,
+    x: { min: -0.2, max: 1, ticks: ticks(-0.2, 1, 0.2), fmt: f2 }, y: { min: 0, max: rows.length, ticks: [] } });
+  el("line", { x1: f.X(0), x2: f.X(0), y1: f.m.t, y2: f.h - f.m.b, class: "ref" }, f.svg);
+  rows.forEach((r, i) => {
+    const yy = f.Y(rows.length - i - 0.5);
+    const top = yy - 10, bottom = yy + 12;
+    label(f, f.X(-0.2), yy - 24, r.judge, "start");
+    el("rect", { x: f.X(r.agreement) - 5, y: top - 5, width: 10, height: 10, class: "s0" }, f.svg);
+    el("line", { x1: f.X(r.low), x2: f.X(r.high), y1: bottom, y2: bottom, class: "s1", "stroke-width": 3 }, f.svg);
+    el("circle", { cx: f.X(r.kappa), cy: bottom, r: 5, class: "s1" }, f.svg);
+    const right = v => v < 0.7;  // labels go left of marks near the right edge
+    label(f, f.X(r.agreement) + (right(r.agreement) ? 10 : -10), top + 4, `agreement ${f2(r.agreement)}`,
+          right(r.agreement) ? "start" : "end", "s0");
+    label(f, right(r.high) ? f.X(Math.max(r.high, r.kappa)) + 10 : f.X(r.low) - 10, bottom + 4, `kappa ${f2(r.kappa)}`,
+          right(r.high) ? "start" : "end", "s1");
+  });
+  document.getElementById("kappa-table").innerHTML =
+    `<tr><th>Judge (human passes ${(human_pass * 100).toFixed(1)}%)</th><th>Agreement</th><th>TPR</th><th>TNR</th><th>Kappa</th><th>95% CI</th></tr>` +
+    rows.map(r => `<tr><td>${r.judge}</td><td class="mono">${f2(r.agreement)}</td><td class="mono">${f2(r.tpr)}</td>` +
+      `<td class="mono">${f2(r.tnr)}</td><td class="mono">${f2(r.kappa)}</td><td class="mono">[${f2(r.low)}, ${f2(r.high)}]</td></tr>`).join("");
+}
+
+if (!DATA) {
+  document.querySelector("main").insertAdjacentHTML("beforeend",
+    "<p>No chart data. Run <code>uv run python scripts/build_views.py</code> and open <code>docs/views/index.html</code>.</p>");
+} else {
+  drawConfusion(); drawCurves(); drawRegression(); drawBootstrap(); drawPower(); drawKappa();
+}
+</script>
