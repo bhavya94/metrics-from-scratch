@@ -77,6 +77,19 @@ two-sided test, alpha 0.05, power 0.8; users per arm
   conversion 10% -> 11%                     14751
 ```
 
+The same trap applies to LLM judges. A judge that passes everything agrees with the human 72% of the time here,
+because most answers deserve a pass. Cohen's kappa removes the agreement that chance alone would give, and the
+true positive and true negative rates show which side a judge errs on:
+
+```console
+$ uv run mfs kappa
+200 answers labeled by a human (72% pass) and three judges
+  judge          agree    TPR    TNR  kappa  95% CI
+  always pass     0.72   1.00   0.00   0.00  [0.00, 0.00]
+  random 80/20    0.62   0.79   0.18  -0.03  [-0.16, 0.11]
+  careful         0.93   0.96   0.84   0.81  [0.71, 0.90]
+```
+
 ## What is here
 - **Synthetic data** (`data/`): a binary task with a chosen positive rate and class separation, seeded.
 - **Classification metrics** (`classification/`): a confusion matrix, and accuracy, precision, recall, F1 and
@@ -85,6 +98,7 @@ two-sided test, alpha 0.05, power 0.8; users per arm
 - **Regression metrics** (`regression/`): MSE, RMSE, MAE and R2.
 - **Statistics** (`stats/`): percentile bootstrap confidence intervals (paired across arrays), Welch's
   two-sample t-test, and sample sizes for A/B tests (means and conversion rates).
+- **Agreement** (`agreement/`): Cohen's kappa between two raters, such as an LLM judge and a human.
 
 Every metric and test has a parity test against the sklearn or scipy function with the same meaning
 (`tests/`). The
@@ -101,6 +115,7 @@ uv run mfs regress --help
 uv run mfs compare --help
 uv run mfs t-test --help
 uv run mfs power --help
+uv run mfs kappa --help
 ```
 
 ## Layers
@@ -111,4 +126,5 @@ enforces both rules.
 2. `classification`: metrics on labels and scores.
 3. `regression`: metrics on real-valued predictions.
 4. `stats`: intervals and tests on any statistic.
-5. `cli.py`: the `mfs` command.
+5. `agreement`: rater agreement, built on the confusion matrix.
+6. `cli.py`: the `mfs` command.

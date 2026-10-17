@@ -109,3 +109,32 @@ class TwoArms:
         rng = np.random.default_rng(self.seed)
         a = rng.normal(self.mean_a, self.sd_a, self.n)
         return Arms(a=a, b=rng.normal(self.mean_a + self.lift, self.sd_b, self.n))
+
+
+@dataclass(frozen=True)
+class Ratings:
+    """Two raters' labels for the same items."""
+
+    human: np.ndarray
+    judge: np.ndarray
+
+
+@dataclass(frozen=True)
+class JudgedAnswers:
+    """A recipe for pass/fail labels from a human and an LLM judge on the same answers.
+
+    The judge passes a human-passed answer with probability `tpr` and fails a human-failed one with probability
+    `tnr`. The same seed gives the same human labels, so several judges can be compared on one set.
+    """
+
+    n: int = 200
+    pass_rate: float = 0.8
+    tpr: float = 0.95
+    tnr: float = 0.85
+    seed: int = 0
+
+    def sample(self) -> Ratings:
+        rng = np.random.default_rng(self.seed)
+        human_pass = rng.random(self.n) < self.pass_rate
+        judge_pass = np.where(human_pass, rng.random(self.n) < self.tpr, rng.random(self.n) >= self.tnr)
+        return Ratings(human=np.where(human_pass, "pass", "fail"), judge=np.where(judge_pass, "pass", "fail"))
