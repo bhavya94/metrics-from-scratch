@@ -108,6 +108,10 @@ $ uv run mfs kappa
   careful         0.93   0.96   0.84   0.81  [0.71, 0.90]
 ```
 
+## Charts
+`docs/views/index.html` draws one chart per section above, from the same seeded runs. Open it in a browser. To
+rebuild it after a code change, run `uv run python scripts/build_views.py`.
+
 ## What is here
 - **Synthetic data** (`data/`): a binary task with a chosen positive rate and class separation, seeded.
 - **Classification metrics** (`classification/`): a confusion matrix, and accuracy, precision, recall, F1 and
